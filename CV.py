@@ -48,6 +48,5 @@ class FaceDetector:
 if __name__ == "__main__":
     # Create an instance of the FaceDetector class with the video file path
     face_detector = FaceDetector('1.mp4')
-
     # Call the detect_faces method to start face detection
     face_detector.detect_faces()

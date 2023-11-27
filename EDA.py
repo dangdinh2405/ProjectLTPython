@@ -1,82 +1,124 @@
+from tkinter import filedialog, simpledialog
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 from sklearn import preprocessing
 from sklearn.feature_selection import SelectKBest, f_regression
 import os
+import tkinter as tk
+
 
 class DataPreprocessing:
-    def __init__(self, directory_path="./"):
+    def __init__(self, master, directory_path="./"):
+        self.master = master
+        
+        self.top_level_window = tk.Toplevel(self.master)
+        
+        self.top_level_window.title("Data Loader")
+
         self.directory_path = directory_path
+        self.selected_csv_file = None
         self.file_path = None
         self.df = None
 
+        self.create_widgets()
+
+    def on_close_callback(self):
+        # Close the top-level window
+        self.top_level_window.destroy()
+
+    def create_widgets(self):
+        # Label and Entry for directory path
+        tk.Label(self.top_level_window, text="Đường dẫn thư mục:").grid(row=0, column=0, padx=10, pady=10)
+        self.directory_entry = tk.Entry(self.top_level_window, width=50)
+        self.directory_entry.grid(row=0, column=1, padx=10, pady=10)
+
+        tk.Button(self.top_level_window, text="Chọn thư mục", command=self.browse_directory).grid(row=0, column=2, padx=10, pady=10)
+
+        # Button to load data
+        tk.Button(self.top_level_window, text="Load Data", command=self.load_data).grid(row=1, column=0, pady=10)
+
+        tk.Button(self.top_level_window, text="Processing", command=self.preprocessing).grid(row=1, column=1, pady=10)
+
+        tk.Button(self.top_level_window, text="Close", command=self.on_close_callback).grid(row=1, column=2, pady=10)
+
+        # Textbox to display DataFrame
+        self.textbox = tk.Text(self.top_level_window, width=80, height=20)
+        self.textbox.grid(row=2, column=0, columnspan=3, padx=10, pady=10)
+
+
+    def browse_directory(self):
+        self.directory_path = filedialog.askdirectory()
+        self.directory_entry.delete(0, tk.END)
+        self.directory_entry.insert(tk.END, self.directory_path)
+
+    def update_textbox(self, message):
+        self.textbox.insert(tk.END, message + '\n')
+        self.textbox.update_idletasks()
+
+    def get_user_input(self, prompt):
+        return simpledialog.askinteger("Input", prompt, parent=self.top_level_window)
+
     def load_data(self):
-        if os.path.exists(self.directory_path):
+        if self.directory_path and os.path.exists(self.directory_path):
             all_files = os.listdir(self.directory_path)
             csv_files = [f for f in all_files if f.endswith(".csv")]
 
             if csv_files:
-                print("Danh sách tệp CSV có sẵn:")
+                self.update_textbox("Danh sách tệp CSV có sẵn:")
                 for i, csv_file in enumerate(csv_files):
-                    print(f"{i + 1}. {csv_file}")
+                    self.update_textbox(f"{i + 1}. {csv_file}")
 
                 try:
-                    selected_index = int(input("Nhập số tương ứng với tệp bạn muốn chọn: ")) - 1
+                    selected_index = self.get_user_input("Nhập số tương ứng với tệp bạn muốn chọn:") - 1
 
                     if 0 <= selected_index < len(csv_files):
                         self.selected_csv_file = csv_files[selected_index]
                         self.file_path = os.path.join(self.directory_path, self.selected_csv_file)
-                        print(f"Bạn đã chọn tệp: {self.selected_csv_file}")
-                        print(f"Đường dẫn tệp: {self.file_path}")
+                        self.update_textbox(f"Bạn đã chọn tệp: {self.selected_csv_file}")
+                        self.update_textbox(f"Đường dẫn tệp: {self.file_path}")
+
+                        # Đọc dữ liệu từ tệp CSV đã chọn
+                        self.df = pd.read_csv(self.file_path)
+                        self.update_textbox(f'Độ lớn của bảng [frame] dữ liệu: {self.df.shape}')
+
+                        # Hiển thị số lượng dòng từ DataFrame
+                        while True:
+                            try:
+                                num_rows_to_display = self.get_user_input(
+                                    "Nhập số lượng dòng bạn muốn in ra từ DataFrame:")
+                                self.update_textbox(str(self.df.head(num_rows_to_display)))
+                                break
+                            except ValueError:
+                                self.update_textbox("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
                     else:
-                        print("Lựa chọn không hợp lệ. Vui lòng chọn số thứ tự hợp lệ.")
-                except ValueError:
-                    print("Lựa chọn không hợp lệ. Vui lòng chọn số thứ tự hợp lệ.")
+                        self.update_textbox("Lựa chọn không hợp lệ. Vui lòng chọn số thứ tự hợp lệ.")
+                except TypeError:
+                    self.update_textbox("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
             else:
-                print("Không có tệp CSV nào trong thư mục.")
+                self.update_textbox("Không có tệp CSV nào trong thư mục.")
         else:
-            print(f"Thư mục '{self.directory_path}' không tồn tại.")
-
-        # Đọc dữ liệu từ tệp CSV đã chọn
-        self.df = pd.read_csv(self.file_path)
-        print('Độ lớn của bảng [frame] dữ liệu thời tiết:', self.df.shape)
-
-        # Hiển thị số lượng dòng từ DataFrame
-        while True:
-            try:
-                num_rows_to_display = int(input("Nhập số lượng dòng bạn muốn in ra từ DataFrame: "))
-                print(self.df.head(num_rows_to_display))
-                break
-            except ValueError:
-                print("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
+            self.update_textbox(f"Thư mục '{self.directory_path}' không tồn tại.")
 
     def preprocessing(self):
         # Bước 3: Xử lý CỘT dữ liệu NULL quá nhiều OR không có giá trị phân tích
-        print(self.df.count().sort_values())
-        print("Danh sách các cột:")
+        count_values = self.df.count().sort_values()
+        self.update_textbox("Số lượng giá trị không NULL cho mỗi cột:")
+        self.update_textbox(count_values.to_string())  # Chuyển đổi thành chuỗi và hiển thị
+        self.update_textbox("Danh sách các cột:")
         for i, column in enumerate(self.df.columns):
-            print(f"{i}. {column}")
+            self.update_textbox(f"{i}. {column}")
 
         # Chọn cột cần xóa
-        columns_to_delete = []
-        while True:
-            try:
-                column_index = int(input("Nhập số thứ tự của cột bạn muốn xóa (nhấn Enter để kết thúc): "))
-                if 0 <= column_index < len(self.df.columns):
-                    columns_to_delete.append(column_index)
-                else:
-                    print("Số thứ tự không hợp lệ. Vui lòng nhập số thứ tự hợp lệ hoặc nhấn Enter để kết thúc.")
-            except ValueError:
-                break
+        columns_to_delete = [0, 1, 3]
 
         # Xóa cột đã chọn
         self.df = self.df.drop(self.df.columns[columns_to_delete], axis=1)
-        print(self.df.shape)
 
         # Bước 4: Xử lý DÒNG dữ liệu NULL
         self.df = self.df.dropna(how='any')
-        print(self.df.shape)
+        self.update_textbox(f"Kích thước DataFrame sau khi xóa các dòng có giá trị null: {self.df.shape}")
 
         # Bước 5: Xử lý loại bỏ các giá trị ngoại lệ
         # Tính toán Z-Score
@@ -84,16 +126,16 @@ class DataPreprocessing:
 
         while True:
             try:
-                threshold = float(input("Nhập ngưỡng giá trị Z-Score: "))
+                threshold = self.get_user_input("Nhập ngưỡng giá trị Z-Score: ")
                 break
             except ValueError:
-                print("Vui lòng nhập một số thực hợp lệ.")
+                self.update_textbox("Vui lòng nhập một số thực hợp lệ.")
 
-        print(f"Bạn đã chọn ngưỡng Z-Score là {threshold}")
+        self.update_textbox(f"Bạn đã chọn ngưỡng Z-Score là {threshold}")
 
         # Lọc dữ liệu dựa trên Z-Score
         self.df = self.df[(z < threshold).all(axis=1)]
-        print(self.df.shape)
+        self.update_textbox(f"Kích thước DataFrame sau khi lọc dựa trên Z-Score: {self.df.shape}")
 
         # Bước 7: Chuẩn hóa tập dữ liệu Input dùng MinMaxScaler
         scaler = preprocessing.MinMaxScaler()
@@ -102,7 +144,7 @@ class DataPreprocessing:
         self.df[selected_columns] = scaler.transform(self.df[selected_columns])
 
         # In ra một số dòng của DataFrame đã xử lý
-        print(self.df.head())
+        self.update_textbox(self.df.head().to_string())
 
         # Bước 8: Xác định mô hình trích lọc các thuộc tính đặc trưng: EDA
         numeric_columns = self.df.select_dtypes(include=['float64', 'int64']).columns
@@ -114,9 +156,10 @@ class DataPreprocessing:
         selector = SelectKBest(f_regression, k=3)
         selector.fit(X, y)
         X_new = selector.transform(X)
-        print(X_new)
-        print(pd.DataFrame(y))
-        print(X.columns[selector.get_support(indices=True)])
+        self.update_textbox(f"{X_new}\n")
+        self.update_textbox(pd.DataFrame(y).to_string(index=False) + '\n')
+        selected_columns = X.columns[selector.get_support(indices=True)]
+        self.update_textbox("\n".join(selected_columns))
 
         # Bước 9: Xác định mô hình trích lọc các thuộc tính đặc trưng
         # XĐ data frame = Chiếu lấy các thuộc tính đặc trưng đã xđ trong B8
@@ -126,12 +169,16 @@ class DataPreprocessing:
         # Đơn giản nhất là lấy 1 thuộc tính đầu vào (Electric Range) để XD Mô hình
         X = self.df[['Electric Range']]
         y = self.df[['Census Tract']]
-        print(X)
-        print(y)
+        X_str = X.to_string(index=False)
+        y_str = y.to_string(index=False)
+
+        self.update_textbox("Dữ liệu của Electric Range:\n" + X_str)
+        self.update_textbox("Dữ liệu của Census Tract:\n" + y_str)
+
 
 if __name__ == "__main__":
     # Khởi tạo đối tượng DataPreprocessing
-    data_processor = DataPreprocessing()
-
-    data_processor.load_data()
-    data_processor.preprocessing()
+    root = tk.Tk()
+    data_processor = DataPreprocessing(root)
+    # data_processor.preprocessing()
+    root.mainloop()
