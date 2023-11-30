@@ -2,7 +2,6 @@ import tkinter as tk
 from threading import Thread
 from tkinter import Canvas
 from PIL import Image, ImageTk
-
 import CarRacing
 import CV
 import EDA
