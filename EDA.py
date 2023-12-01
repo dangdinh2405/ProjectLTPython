@@ -19,7 +19,7 @@ class CustomDialog(tk.Toplevel):
         self.prompt_label.pack(pady=10)
 
         self.voice_button = tk.Button(self, text="Voice", command=self.get_voice_input)
-        self.voice_button.pack(pady=5)
+        self.voice_button.place(x=30, y=47)
 
         self.manual_button = tk.Button(self, text="Input", command=self.get_manual_input)
         self.manual_button.pack(pady=5)
