@@ -48,27 +48,8 @@ class MyGUI:
     def CarRacingBoy(self):
         # Ẩn cửa sổ Tkinter
         self.master.withdraw()
-
         # Tạo một thể hiện của RacingGame
-        car = CarRacing.RacingGame()
-
-        # Chạy trò chơi trong một luồng riêng biệt
-        game_thread = Thread(target=car.run_game)
-
-        # Bắt đầu luồng trò chơi
-        game_thread.start()
-
-        # Đợi cho luồng trò chơi kết thúc và sau đó hiển thị lại cửa sổ Tkinter
-        self.master.after(0, self.check_game_status, game_thread)
-
-    def check_game_status(self, game_thread):
-        # Kiểm tra trạng thái của luồng trò chơi
-        if game_thread.is_alive():
-            # Nếu trò chơi vẫn đang chạy, kiểm tra lại sau một khoảng thời gian nhất định
-            self.master.after(100, self.check_game_status, game_thread)
-        else:
-            # Nếu trò chơi đã kết thúc, hiển thị lại cửa sổ Tkinter
-            self.master.deiconify()
+        CarRacing.GameOptionsForm(self.master)
 
     def exit_application(self):
         # Kết thúc ứng dụng khi nút Exit được nhấn
