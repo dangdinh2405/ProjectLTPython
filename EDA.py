@@ -1,15 +1,83 @@
 from tkinter import filedialog, simpledialog
 import numpy as np
 import pandas as pd
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy import stats
 from sklearn import preprocessing
 from sklearn.feature_selection import SelectKBest, f_regression
 import os
 import tkinter as tk
+import speech_recognition as sr
+import matplotlib.pyplot as plt
+
+
+class CustomDialog(tk.Toplevel):
+    def __init__(self, parent, prompt):
+        super().__init__(parent)
+        self.title("Chọn phương thức nhập")
+        self.prompt_label = tk.Label(self, text=prompt)
+        self.prompt_label.pack(pady=10)
+
+        self.voice_button = tk.Button(self, text="Voice", command=self.get_voice_input)
+        self.voice_button.pack(pady=5)
+
+        self.manual_button = tk.Button(self, text="Input", command=self.get_manual_input)
+        self.manual_button.pack(pady=5)
+
+        self.result = None
+
+    def get_voice_input(self):
+        recognizer = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Hãy nói gì đó...")
+            audio = recognizer.record(source, duration=3)
+
+        try:
+            text = recognizer.recognize_google(audio, language="vi-VN")
+            return text
+        except sr.UnknownValueError:
+            return "Không thể nhận dạng giọng nói."
+        except sr.RequestError as e:
+            return "Lỗi trong việc kết nối tới Google API: {0}".format(e)
+
+    def get_manual_input(self):
+        # Hiển thị hộp thoại nhập bằng tay
+        manual_input = simpledialog.askinteger("Input", "Nhập số tương ứng với tệp bạn muốn chọn:")
+        if manual_input is not None:
+            self.result = manual_input
+            self.destroy()  # Đóng hộp thoại sau khi nhập bằng tay
+
+    def get_user_input_with_voice(self):
+        voice_input = self.get_voice_input()
+        if voice_input:
+            # Hiển thị giọng nói đã nhận dạng và chuyển đổi thành số (nếu có thể)
+            print("Giọng nói đã nhận dạng: ", voice_input)
+            try:
+                user_input = self.convert(voice_input)
+                self.result = user_input
+                self.destroy()
+            except ValueError:
+                print("Không thể chuyển đổi thành số.")
+        else:
+            print("Đã xảy ra lỗi khi nhập giọng nói.")
+
+    def convert(self, str_number):
+        so_dict = {
+            "một": 1, "hai": 2, "ba": 3, "bốn": 4, "năm": 5,
+            "sáu": 6, "bảy": 7, "tám": 8, "chín": 9,
+            "mười": 10, "mười một": 11, "mười hai": 12,
+            "mười ba": 13, "mười bốn": 14, "mười lăm": 15,
+            "mười sáu": 16, "mười bảy": 17, "mười tám": 18,
+            "mười chín": 19, "hai mươi": 20, "hai mươi một": 21,
+            "1": 1, "2": 2, "3": 3, "4": 4, "5": 5
+        }
+        return so_dict.get(str_number, "none")
 
 
 class DataPreprocessing:
     def __init__(self, master, directory_path="./"):
+        self.y = None
+        self.X = None
         self.master = master
         
         self.top_level_window = tk.Toplevel(self.master)
@@ -36,9 +104,11 @@ class DataPreprocessing:
         tk.Button(self.top_level_window, text="Chọn thư mục", command=self.browse_directory).grid(row=0, column=2, padx=10, pady=10)
 
         # Button to load data
-        tk.Button(self.top_level_window, text="Load Data", command=self.load_data).grid(row=1, column=0, pady=10)
+        tk.Button(self.top_level_window, text="Load Data", command=self.load_data).place(x=60, y=55)
 
-        tk.Button(self.top_level_window, text="Processing", command=self.preprocessing).grid(row=1, column=1, pady=10)
+        tk.Button(self.top_level_window, text="Processing", command=self.preprocessing).place(x=180, y=55)
+
+        tk.Button(self.top_level_window, text='Biểu Đồ', command=self.show_plot).place(x=300, y=55)
 
         tk.Button(self.top_level_window, text="Close", command=self.on_close_callback).grid(row=1, column=2, pady=10)
 
@@ -57,7 +127,10 @@ class DataPreprocessing:
         self.textbox.update_idletasks()
 
     def get_user_input(self, prompt):
-        return simpledialog.askinteger("Input", prompt, parent=self.top_level_window)
+        dialog = CustomDialog(self.top_level_window, prompt)
+        self.top_level_window.wait_window(dialog)
+        user_input = dialog.result
+        return user_input
 
     def load_data(self):
         if self.directory_path and os.path.exists(self.directory_path):
@@ -69,32 +142,34 @@ class DataPreprocessing:
                 for i, csv_file in enumerate(csv_files):
                     self.update_textbox(f"{i + 1}. {csv_file}")
 
-                try:
-                    selected_index = self.get_user_input("Nhập số tương ứng với tệp bạn muốn chọn:") - 1
+                user_input = self.get_user_input("Nhập số tương ứng với tệp bạn muốn chọn:")
+                if user_input is not None:
+                    print("Giá trị đã nhập:", user_input)
+                else:
+                    self.update_textbox("Đã xảy ra lỗi khi nhập giọng nói.")
+                # selected_index = self.get_user_input("Nhập số tương ứng với tệp bạn muốn chọn:") - 1
 
-                    if 0 <= selected_index < len(csv_files):
-                        self.selected_csv_file = csv_files[selected_index]
-                        self.file_path = os.path.join(self.directory_path, self.selected_csv_file)
-                        self.update_textbox(f"Bạn đã chọn tệp: {self.selected_csv_file}")
-                        self.update_textbox(f"Đường dẫn tệp: {self.file_path}")
+                if 0 <= user_input - 1 < len(csv_files):
+                    self.selected_csv_file = csv_files[user_input - 1]
+                    self.file_path = os.path.join(self.directory_path, self.selected_csv_file)
+                    self.update_textbox(f"Bạn đã chọn tệp: {self.selected_csv_file}")
+                    self.update_textbox(f"Đường dẫn tệp: {self.file_path}")
 
-                        # Đọc dữ liệu từ tệp CSV đã chọn
-                        self.df = pd.read_csv(self.file_path)
-                        self.update_textbox(f'Độ lớn của bảng [frame] dữ liệu: {self.df.shape}')
+                    # Đọc dữ liệu từ tệp CSV đã chọn
+                    self.df = pd.read_csv(self.file_path)
+                    self.update_textbox(f'Độ lớn của bảng [frame] dữ liệu: {self.df.shape}')
 
-                        # Hiển thị số lượng dòng từ DataFrame
-                        while True:
-                            try:
-                                num_rows_to_display = self.get_user_input(
-                                    "Nhập số lượng dòng bạn muốn in ra từ DataFrame:")
-                                self.update_textbox(str(self.df.head(num_rows_to_display)))
-                                break
-                            except ValueError:
-                                self.update_textbox("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
-                    else:
-                        self.update_textbox("Lựa chọn không hợp lệ. Vui lòng chọn số thứ tự hợp lệ.")
-                except TypeError:
-                    self.update_textbox("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
+                    # Hiển thị số lượng dòng từ DataFrame
+                    while True:
+                        try:
+                            num_rows_to_display = 10
+                            self.update_textbox(str(self.df.head(num_rows_to_display)))
+                            break
+                        except ValueError:
+                            self.update_textbox("Lựa chọn không hợp lệ. Vui lòng nhập một số nguyên.")
+                else:
+                    self.update_textbox("Lựa chọn không hợp lệ. Vui lòng chọn số thứ tự hợp lệ.")
+
             else:
                 self.update_textbox("Không có tệp CSV nào trong thư mục.")
         else:
@@ -123,12 +198,7 @@ class DataPreprocessing:
         # Tính toán Z-Score
         z = np.abs(stats.zscore(self.df[['Postal Code', 'Electric Range', 'Base MSRP', 'DOL Vehicle ID', 'Census Tract']]))
 
-        while True:
-            try:
-                threshold = self.get_user_input("Nhập ngưỡng giá trị Z-Score: ")
-                break
-            except ValueError:
-                self.update_textbox("Vui lòng nhập một số thực hợp lệ.")
+        threshold = 2
 
         self.update_textbox(f"Bạn đã chọn ngưỡng Z-Score là {threshold}")
 
@@ -166,13 +236,39 @@ class DataPreprocessing:
 
         # Bước 10: EDA theo nhu cầu thực tế => input vào các mô hình AI, ML,...
         # Đơn giản nhất là lấy 1 thuộc tính đầu vào (Electric Range) để XD Mô hình
-        X = self.df[['Electric Range']]
-        y = self.df[['Census Tract']]
+        self.X = self.df[['Electric Range']]
+        self.y = self.df[['Census Tract']]
         X_str = X.to_string(index=False)
         y_str = y.to_string(index=False)
 
         self.update_textbox("Dữ liệu của Electric Range:\n" + X_str)
         self.update_textbox("Dữ liệu của Census Tract:\n" + y_str)
+
+
+    def show_plot(self):
+        # Tạo một đối tượng Figure của Matplotlib
+        fig, ax = plt.subplots()
+
+        # Vẽ biểu đồ trên đối tượng Axis
+        ax.plot(self.X, self.y, 'o', alpha=0.3)
+        ax.set_title('Mối quan hệ giữa Electric Range và Census Tract')
+        ax.set_xlabel('Electric Range')
+        ax.set_ylabel('Census Tract')
+
+        # Tạo đối tượng FigureCanvasTkAgg để tích hợp vào Tkinter
+        canvas = FigureCanvasTkAgg(fig, master=self.top_level_window)
+        canvas.draw()
+
+        # Tạo một cửa sổ Toplevel mới để hiển thị biểu đồ
+        toplevel = tk.Toplevel(self.top_level_window)
+        toplevel.title('Biểu Đồ')
+
+        # Tạo một đối tượng FigureCanvasTkAgg mới cho mỗi cửa sổ Toplevel
+        canvas_toplevel = FigureCanvasTkAgg(fig, master=toplevel)
+        canvas_toplevel.draw()
+
+        # Hiển thị FigureCanvasTkAgg trong Toplevel
+        canvas_toplevel.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
 
 if __name__ == "__main__":

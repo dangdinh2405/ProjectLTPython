@@ -10,7 +10,7 @@ import EDA
 class MyGUI:
     def __init__(self, master):
         self.master = master
-        master.title("Tkinter Example")
+        master.title("Đồ án cuối kỳ")
         master.geometry("1000x500")
 
         # Tạo ba nút
@@ -39,8 +39,8 @@ class MyGUI:
         canvas.image = tk_image
 
     def FaceDetection(self):
-        face = CV.FaceDetector('1.mp4')
-        face.detect_faces()
+        face_detector = CV.FaceDetector(self.master)
+        face_detector.run_gui()
 
     def EDA(self):
         eda = EDA.DataPreprocessing(root)
