@@ -7,6 +7,7 @@ from PIL import ImageTk, Image
 from pygame.locals import *
 import tkinter as tk
 
+
 class RacingGame:
     def __init__(self, selected_fps, selected_bg, selected_car, selected_obstacles):
         pygame.init()
